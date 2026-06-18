@@ -1,0 +1,9 @@
+{
+  "id": "dev.flxw.kepler-plugin-template",
+  "name": "Flxw's Plugin Template",
+  "version": "1.0.0",
+  "author": "Flxw",
+  "icon": "hammer",
+  "bundleName": "flxws-kepler-plugin-template",
+  "packageName": "@zflxw/kepler-plugin-template"
+}
