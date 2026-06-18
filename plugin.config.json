@@ -1,9 +1,9 @@
 {
-  "id": "dev.flxw.kepler-plugin-template",
-  "name": "Flxw's Plugin Template",
-  "version": "1.0.0",
-  "author": "Flxw",
-  "icon": "hammer",
-  "bundleName": "flxws-kepler-plugin-template",
-  "packageName": "@zflxw/kepler-plugin-template"
+  "id": "dev.nikmtl.kepler-music",
+  "name": "Music",
+  "version": "0.1.0",
+  "author": "nikmtl",
+  "icon": "music.note.square.stack",
+  "bundleName": "nikmtls-kepler-music",
+  "packageName": "@nikmtl/kepler-music"
 }

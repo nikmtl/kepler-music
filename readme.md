@@ -1,74 +1,51 @@
-# Flxw's Kepler Plugin Template
+# Kepler Music Plugin
 
-A TypeScript template for building [Kepler](https://trykepler.app) plugins using the `@kepler-app/plugin-sdk`.
+A [Kepler](https://trykepler.app) plugin that lets you search for music across multiple platforms.
 
-## Features
+## What it does
 
-- Feature-based architecture — each feature encapsulates its own settings, search modes, look-ahead items, search providers, and widgets
-- Built with [tsup](https://tsup.egoist.dev/) for fast bundling
-- Auto-generates the Kepler plugin manifest on build
+Type `/music` in Kepler to open the music search mode, then enter any artist or song name to query your enabled music sources simultaneously.
 
-## Project Structure
+**Supported sources:**
 
-```
-plugin.config.json   # Plugin metadata (id, name, version, author, icon)
-src/
-  index.ts           # Entry point — registers all features and exports the plugin
-  features/
-    index.ts         # Feature interface and registerFeatures() utility
-    coinflip.ts      # Example feature: a coin flip command
-scripts/
-  manifest.js        # Generates manifest.json into the Kepler plugins directory
-```
+| Source                                            | Data                                 |
+| ------------------------------------------------- | ------------------------------------ |
+| [Spotify](https://www.spotify.com)                | Artist, album, track names, and more |
+| [Apple Music](https://www.apple.com/apple-music/) | Artist, album, track names, and more |
+| [Genius](https://genius.com)                      | Song lyrics and annotations          |
 
-## Getting Started
+When no query has been entered yet, the search mode shows how many sources are currently active.
+
+## Installation
+
+**Requirements:** [Node.js](https://nodejs.org) and [pnpm](https://pnpm.io)
 
 ```bash
-git clone https://github.com/zFlxw/kepler-plugin-template.git
-cd kepler-plugin-template
+git clone https://github.com/nikmtl/kepler-music.git
+cd kepler-music
 pnpm install
-```
-
-Edit `plugin.config.json` to set your plugin's `id`, `name`, `version`, `author`, `icon`, `bundleName`, and `packageName`.
-
-## Adding a Feature
-
-Create a new file in `src/features/` that exports a `Feature` object:
-
-```ts
-import { Command, Icon } from '@kepler-app/plugin-sdk';
-import { Feature } from '.';
-
-export const myFeature: Feature = {
-  settings: [...],
-  searchModes: [...],
-  lookAhead: [...],
-  widgets: [...],
-};
-```
-
-Then add it to the `features` array in `src/index.ts`.
-
-A `Feature` can include any combination of:
-
-| Field             | Type                        | Description                          |
-| ----------------- | --------------------------- | ------------------------------------ |
-| `settings`        | `PluginSettingDefinition[]` | Toggle/input settings shown in UI    |
-| `searchModes`     | `PluginCommand[]`           | Commands surfaced in search          |
-| `searchProviders` | `PluginProvider[]`          | Providers for search results         |
-| `lookAhead`       | `PluginLookAhead[]`         | Items shown proactively while typing |
-| `widgets`         | `PluginResolver[]`          | Inline widgets rendered in results   |
-
-## Building & Installing
-
-```bash
 pnpm build
 ```
 
-This bundles the plugin with `tsup` and writes the manifest to:
+The build step bundles the plugin and writes it to:
 
 ```
-~/Library/Application Support/Kepler/Plugins/<bundleName>.keplugin/manifest.json
+~/Library/Application Support/Kepler/Plugins/nikmtls-kepler-music.keplugin/
 ```
 
-Open Kepler, enable Community Plugins if you haven't already, and reload the plugin list.
+Then in Kepler:
+
+1. Open Settings → Plugins
+2. Enable **Community Plugins** if not already active
+3. The Music plugin should appear in the list — enable it
+4. Use `/music` or type `music` in the global search to open it
+
+After any code change, run `pnpm build` again and reload the plugin in Kepler.
+
+## Configuration
+
+In the plugin settings you can toggle each source on or off individually:
+
+- **Enable Spotify**: Show Spotify results in search
+- **Enable Apple Music**: Show Apple Music results in search
+- **Enable Genius**: Show Genius results in search
