@@ -4,7 +4,7 @@ A [Kepler](https://trykepler.app) plugin that lets you search for music across m
 
 ## What it does
 
-Type `/music` in Kepler to open the music search mode, then enter any artist or song name to query your enabled music sources simultaneously.
+Type `/music` in Kepler to open the music search mode, then enter any artist or song name to query your selected music source.
 
 **Supported sources:**
 
@@ -14,7 +14,6 @@ Type `/music` in Kepler to open the music search mode, then enter any artist or 
 | [Apple Music](https://www.apple.com/apple-music/) | Artist, album, track names, and more |
 | [Genius](https://genius.com)                      | Song lyrics and annotations          |
 
-When no query has been entered yet, the search mode shows how many sources are currently active.
 
 ## Installation
 

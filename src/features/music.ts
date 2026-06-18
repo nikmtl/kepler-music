@@ -1,0 +1,278 @@
+import { Action, Command, Icon, Match, Provider } from "@kepler-app/plugin-sdk";
+import { Feature } from ".";
+
+const enum Setting {
+  SOURCE = "music-sources-select",
+  GLOBAL_SEARCH = "music-global-search-toggle",
+  SPOTIFY_TOKEN = "music-spotify-token",
+  GENIUS_TOKEN = "music-genius-token",
+}
+
+type SourceId = "apple-music" | "spotify" | "genius";
+
+interface TrackResult {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: ReturnType<typeof Icon.sfSymbol>;
+  url: string;
+}
+
+async function fetchAppleMusic(query: string): Promise<TrackResult[]> {
+  if (!query.trim()) return [];
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=15`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    results: Array<{
+      trackId: number;
+      trackName: string;
+      artistName: string;
+      collectionName: string;
+      trackViewUrl: string;
+    }>;
+  };
+  return data.results.map((t) => ({
+    id: `am-${t.trackId}`,
+    title: t.trackName,
+    subtitle: `${t.artistName} — ${t.collectionName}`,
+    icon: Icon.sfSymbol("music.note"),
+    url: t.trackViewUrl,
+  }));
+}
+
+async function fetchSpotify(
+  query: string,
+  token: string,
+): Promise<TrackResult[]> {
+  if (!query.trim() || !token) return [];
+  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    tracks: {
+      items: Array<{
+        id: string;
+        name: string;
+        artists: Array<{ name: string }>;
+        album: { name: string };
+        external_urls: { spotify: string };
+      }>;
+    };
+  };
+  return data.tracks.items.map((t) => ({
+    id: `sp-${t.id}`,
+    title: t.name,
+    subtitle: `${t.artists.map((a) => a.name).join(", ")} — ${t.album.name}`,
+    icon: Icon.sfSymbol("music.note"),
+    url: t.external_urls.spotify,
+  }));
+}
+
+async function fetchGenius(
+  query: string,
+  token: string,
+): Promise<TrackResult[]> {
+  if (!query.trim() || !token) return [];
+  const url = `https://api.genius.com/search?q=${encodeURIComponent(query)}&per_page=15`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    response: {
+      hits: Array<{
+        result: {
+          id: number;
+          title: string;
+          primary_artist: { name: string };
+          url: string;
+          song_art_image_thumbnail_url: string;
+        };
+      }>;
+    };
+  };
+  return data.response.hits.map((h) => ({
+    id: `genius-${h.result.id}`,
+    title: h.result.title,
+    subtitle: h.result.primary_artist.name,
+    icon: Icon.sfSymbol("music.note.list"),
+    url: h.result.url,
+  }));
+}
+
+function searchUrl(source: SourceId, query: string): string {
+  const q = encodeURIComponent(query);
+  switch (source) {
+    case "apple-music":
+      return `https://music.apple.com/search?term=${q}`;
+    case "spotify":
+      return `https://open.spotify.com/search/${q}`;
+    case "genius":
+      return `https://genius.com/search?q=${q}`;
+  }
+}
+
+function sourceIcon(source: SourceId) {
+  switch (source) {
+    case "apple-music":
+      return Icon.sfSymbol("applelogo");
+    case "spotify":
+      return Icon.sfSymbol("music.note.house");
+    case "genius":
+      return Icon.sfSymbol("text.quote");
+  }
+}
+
+function sourceTitle(source: SourceId): string {
+  switch (source) {
+    case "apple-music":
+      return "Apple Music";
+    case "spotify":
+      return "Spotify";
+    case "genius":
+      return "Genius";
+  }
+}
+
+async function fetchResults(
+  source: SourceId,
+  query: string,
+  ctx: {
+    settings: Record<
+      string,
+      string | number | boolean | Array<Record<string, string>>
+    >;
+  },
+): Promise<TrackResult[]> {
+  switch (source) {
+    case "apple-music":
+      return fetchAppleMusic(query);
+    case "spotify":
+      return fetchSpotify(
+        query,
+        (ctx.settings[Setting.SPOTIFY_TOKEN] as string) ?? "",
+      );
+    case "genius":
+      return fetchGenius(
+        query,
+        (ctx.settings[Setting.GENIUS_TOKEN] as string) ?? "",
+      );
+  }
+}
+
+export const music: Feature = {
+  settings: [
+    {
+      id: Setting.SOURCE,
+      title: "Music Source",
+      kind: "picker",
+      description: "Select which music source to search.",
+      defaultValue: "apple-music",
+      options: [
+        { id: "apple-music", title: "Apple Music" },
+        { id: "spotify", title: "Spotify" },
+        { id: "genius", title: "Genius" },
+      ],
+    },
+    {
+      id: Setting.GLOBAL_SEARCH,
+      title: "Enable in Global Search",
+      kind: "toggle",
+      description:
+        "Show music results in global search (outside of /music mode).",
+      defaultValue: false,
+    },
+    {
+      id: Setting.SPOTIFY_TOKEN,
+      title: "Spotify Access Token",
+      kind: "secureText",
+      description:
+        "Spotify API Bearer token. Required when Spotify is selected as source.",
+      defaultValue: "",
+    },
+    {
+      id: Setting.GENIUS_TOKEN,
+      title: "Genius Client Access Token",
+      kind: "secureText",
+      description:
+        "Genius API client access token. Required when Genius is selected as source.",
+      defaultValue: "",
+    },
+  ],
+  searchModes: [
+    Command.search({
+      id: "music-mode",
+      title: "Music Search",
+      icon: Icon.sfSymbol("music.note.square.stack"),
+      subtitle: "Search for songs and artists",
+      keywords: ["music", "song", "artist", "track"],
+      shortcutPrefix: "music",
+      async run(query, ctx) {
+        const source = ctx.settings[Setting.SOURCE] as SourceId;
+        const q = query.raw.trim();
+
+        const openSearchItem = {
+          id: "music-open-search",
+          title: `Search "${q || "..."}" on ${sourceTitle(source)}`,
+          subtitle: `Open ${sourceTitle(source)} search in browser`,
+          icon: sourceIcon(source),
+          action: Action.url(searchUrl(source, q || "")),
+        };
+
+        if (!q) return [openSearchItem];
+
+        const results = await fetchResults(source, q, ctx);
+
+        const items = results.map((r) => ({
+          id: r.id,
+          title: r.title,
+          subtitle: r.subtitle,
+          icon: r.icon,
+          action: Action.url(r.url),
+        }));
+
+        return [openSearchItem, ...items];
+      },
+    }),
+  ],
+  searchProviders: [
+    Provider.results({
+      id: "music-global-provider",
+      title: "Music Search",
+      match(query, ctx) {
+        if (!ctx.settings[Setting.GLOBAL_SEARCH]) return Match.none();
+        if (query.raw.length < 3) return Match.none();
+        return Match.weak();
+      },
+      async run(query, ctx) {
+        const source = ctx.settings[Setting.SOURCE] as SourceId;
+        const q = query.raw.trim();
+        const results = await fetchResults(source, q, ctx);
+
+        const openSearchItem = {
+          id: "music-global-open-search",
+          title: `Search "${q}" on ${sourceTitle(source)}`,
+          subtitle: `Open ${sourceTitle(source)} search in browser`,
+          icon: sourceIcon(source),
+          action: Action.url(searchUrl(source, q)),
+        };
+
+        if (results.length === 0) return [openSearchItem];
+
+        return [
+          openSearchItem,
+          ...results.slice(0, 5).map((r) => ({
+            id: r.id,
+            title: r.title,
+            subtitle: r.subtitle,
+            icon: r.icon,
+            action: Action.url(r.url),
+          })),
+        ];
+      },
+    }),
+  ],
+};

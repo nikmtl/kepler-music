@@ -1,9 +1,9 @@
 import { definePlugin, Icon, KeplerPluginMeta } from '@kepler-app/plugin-sdk';
 import { registerFeatures } from './features';
-import { coinflip } from './features/coinflip';
+import { music } from './features/music';
 import config from '../plugin.config.json';
 
-const features = [coinflip];
+const features = [music];
 const { settings, ...registrations } = registerFeatures(features);
 
 const metadata: KeplerPluginMeta = {
@@ -12,7 +12,15 @@ const metadata: KeplerPluginMeta = {
   version: config.version,
   author: config.author,
   icon: Icon.sfSymbol(config.icon),
-  permissions: [],
+  permissions: ["network"],
+  networkUrls: [
+    "itunes.apple.com",
+    "music.apple.com",
+    "api.spotify.com",
+    "open.spotify.com",
+    "api.genius.com",
+    "genius.com",
+  ],
   settings,
 };
 
