@@ -15,7 +15,7 @@ interface TrackResult {
   id: string;
   title: string;
   subtitle: string;
-  icon: ReturnType<typeof Icon.sfSymbol>;
+  imageUrl?: string;
   url: string;
 }
 
@@ -31,13 +31,14 @@ async function fetchAppleMusic(query: string): Promise<TrackResult[]> {
       artistName: string;
       collectionName: string;
       trackViewUrl: string;
+      artworkUrl100: string;
     }>;
   };
   return data.results.map((t) => ({
     id: `am-${t.trackId}`,
     title: t.trackName,
     subtitle: `${t.artistName} — ${t.collectionName}`,
-    icon: Icon.sfSymbol("music.note"),
+    imageUrl: t.artworkUrl100,
     url: t.trackViewUrl,
   }));
 }
@@ -93,7 +94,7 @@ async function fetchSpotify(
         id: string;
         name: string;
         artists: Array<{ name: string }>;
-        album: { name: string };
+        album: { name: string; images: Array<{ url: string }> };
         external_urls: { spotify: string };
       }>;
     };
@@ -102,7 +103,7 @@ async function fetchSpotify(
     id: `sp-${t.id}`,
     title: t.name,
     subtitle: `${t.artists.map((a) => a.name).join(", ")} — ${t.album.name}`,
-    icon: Icon.sfSymbol("music.note"),
+    imageUrl: t.album.images[0]?.url,
     url: t.external_urls.spotify,
   }));
 }
@@ -134,7 +135,7 @@ async function fetchGenius(
     id: `genius-${h.result.id}`,
     title: h.result.title,
     subtitle: h.result.primary_artist.name,
-    icon: Icon.sfSymbol("music.note.list"),
+    imageUrl: h.result.song_art_image_thumbnail_url,
     url: h.result.url,
   }));
 }
@@ -275,7 +276,7 @@ export const music: Feature = {
           id: r.id,
           title: r.title,
           subtitle: r.subtitle,
-          icon: r.icon,
+          icon: r.imageUrl ? Icon.url(r.imageUrl) : Icon.sfSymbol("music.note"),
           action: Action.url(r.url),
         }));
 
@@ -313,7 +314,7 @@ export const music: Feature = {
             id: r.id,
             title: r.title,
             subtitle: r.subtitle,
-            icon: r.icon,
+            icon: r.imageUrl ? Icon.url(r.imageUrl) : Icon.sfSymbol("music.note"),
             action: Action.url(r.url),
           })),
         ];
