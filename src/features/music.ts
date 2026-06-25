@@ -276,7 +276,7 @@ export const music: Feature = {
           id: r.id,
           title: r.title,
           subtitle: r.subtitle,
-          icon: r.imageUrl ? Icon.url(r.imageUrl) : Icon.sfSymbol("music.note"),
+          icon: r.imageUrl ? Icon.rounded(Icon.url(r.imageUrl)) : Icon.sfSymbol("music.note"),
           action: Action.url(r.url),
         }));
 
@@ -314,7 +314,7 @@ export const music: Feature = {
             id: r.id,
             title: r.title,
             subtitle: r.subtitle,
-            icon: r.imageUrl ? Icon.url(r.imageUrl) : Icon.sfSymbol("music.note"),
+            icon: r.imageUrl ? Icon.rounded(Icon.url(r.imageUrl)) : Icon.sfSymbol("music.note"),
             action: Action.url(r.url),
           })),
         ];
