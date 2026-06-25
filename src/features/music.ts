@@ -4,7 +4,8 @@ import { Feature } from ".";
 const enum Setting {
   SOURCE = "music-sources-select",
   GLOBAL_SEARCH = "music-global-search-toggle",
-  SPOTIFY_TOKEN = "music-spotify-token",
+  SPOTIFY_CLIENT_ID = "music-spotify-client-id",
+  SPOTIFY_CLIENT_SECRET = "music-spotify-client-secret",
   GENIUS_TOKEN = "music-genius-token",
 }
 
@@ -41,16 +42,51 @@ async function fetchAppleMusic(query: string): Promise<TrackResult[]> {
   }));
 }
 
+let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getSpotifyToken(clientId: string, clientSecret: string): Promise<string> {
+  if (spotifyTokenCache && Date.now() < spotifyTokenCache.expiresAt) {
+    return spotifyTokenCache.token;
+  }
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!res.ok) {
+    console.error(`[kepler-music] Spotify token fetch failed: ${res.status}`, await res.text());
+    return "";
+  }
+  const data = (await res.json()) as { access_token: string; expires_in: number };
+  spotifyTokenCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+  };
+  return spotifyTokenCache.token;
+}
+
 async function fetchSpotify(
   query: string,
-  token: string,
+  clientId: string,
+  clientSecret: string,
 ): Promise<TrackResult[]> {
-  if (!query.trim() || !token) return [];
+  if (!query.trim() || !clientId || !clientSecret) return [];
+  const token = await getSpotifyToken(clientId, clientSecret);
+  if (!token) {
+    console.error("[kepler-music] Spotify: no token available, skipping search");
+    return [];
+  }
   const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.error(`[kepler-music] Spotify search failed: ${res.status}`, await res.text());
+    return [];
+  }
   const data = (await res.json()) as {
     tracks: {
       items: Array<{
@@ -153,7 +189,8 @@ async function fetchResults(
     case "spotify":
       return fetchSpotify(
         query,
-        (ctx.settings[Setting.SPOTIFY_TOKEN] as string) ?? "",
+        (ctx.settings[Setting.SPOTIFY_CLIENT_ID] as string) ?? "",
+        (ctx.settings[Setting.SPOTIFY_CLIENT_SECRET] as string) ?? "",
       );
     case "genius":
       return fetchGenius(
@@ -186,11 +223,19 @@ export const music: Feature = {
       defaultValue: false,
     },
     {
-      id: Setting.SPOTIFY_TOKEN,
-      title: "Spotify Access Token",
+      id: Setting.SPOTIFY_CLIENT_ID,
+      title: "Spotify Client ID",
       kind: "secureText",
       description:
-        "Spotify API Bearer token. Required when Spotify is selected as source.",
+        "Spotify app Client ID. Required when Spotify is selected as source.",
+      defaultValue: "",
+    },
+    {
+      id: Setting.SPOTIFY_CLIENT_SECRET,
+      title: "Spotify Client Secret",
+      kind: "secureText",
+      description:
+        "Spotify app Client Secret. Tokens are fetched and refreshed automatically.",
       defaultValue: "",
     },
     {

@@ -16,6 +16,7 @@ const metadata: KeplerPluginMeta = {
   networkUrls: [
     "itunes.apple.com",
     "music.apple.com",
+    "accounts.spotify.com",
     "api.spotify.com",
     "open.spotify.com",
     "api.genius.com",

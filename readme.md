@@ -43,8 +43,26 @@ After any code change, run `pnpm build` again and reload the plugin in Kepler.
 
 ## Configuration
 
-In the plugin settings you can toggle each source on or off individually:
+Open the plugin settings in Kepler to select your music source and configure tokens.
 
-- **Enable Spotify**: Show Spotify results in search
-- **Enable Apple Music**: Show Apple Music results in search
-- **Enable Genius**: Show Genius results in search
+### Apple Music
+
+No token required. Apple Music search uses the public iTunes Search API.
+
+### Spotify
+
+Spotify requires a Client ID and Client Secret from a registered app. 
+
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in.
+2. Click **Create app**, fill in any name and description, set the redirect URI to `https://localhost` (required by the form but not used), and enable the **Web API** checkbox.
+3. Open your new app, go to **Settings**, and copy the **Client ID** and **Client Secret**.
+4. Paste them into **Spotify Client ID** and **Spotify Client Secret** in the plugin settings.
+
+### Genius
+
+Genius requires a Client Access Token from a registered app.
+
+1. Go to [Genius API Clients](https://genius.com/api-clients) and log in (or create a free account).
+2. Click **New API Client**, fill in any app name and set the website URL to `http://localhost`.
+3. Open the created client and copy the **Client Access Token**.
+4. Paste it into **Genius Client Access Token** in the plugin settings.
