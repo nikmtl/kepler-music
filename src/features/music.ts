@@ -1,10 +1,9 @@
-import { Action, Command, Icon, Match, Provider } from "@kepler-app/plugin-sdk";
+import { Action, Command, Icon } from "@kepler-app/plugin-sdk";
 import { Feature } from ".";
 
 const enum Setting {
   SOURCE = "music-sources-select",
-  GLOBAL_SEARCH = "music-global-search-toggle",
-  SPOTIFY_CLIENT_ID = "music-spotify-client-id",
+SPOTIFY_CLIENT_ID = "music-spotify-client-id",
   SPOTIFY_CLIENT_SECRET = "music-spotify-client-secret",
   GENIUS_TOKEN = "music-genius-token",
 }
@@ -216,14 +215,6 @@ export const music: Feature = {
       ],
     },
     {
-      id: Setting.GLOBAL_SEARCH,
-      title: "Enable in Global Search",
-      kind: "toggle",
-      description:
-        "Show music results in global search (outside of /music mode).",
-      defaultValue: false,
-    },
-    {
       id: Setting.SPOTIFY_CLIENT_ID,
       title: "Spotify Client ID",
       kind: "secureText",
@@ -281,43 +272,6 @@ export const music: Feature = {
         }));
 
         return [openSearchItem, ...items];
-      },
-    }),
-  ],
-  searchProviders: [
-    Provider.results({
-      id: "music-global-provider",
-      title: "Music Search",
-      match(query, ctx) {
-        if (!ctx.settings[Setting.GLOBAL_SEARCH]) return Match.none();
-        if (query.raw.length < 3) return Match.none();
-        return Match.weak();
-      },
-      async run(query, ctx) {
-        const source = ctx.settings[Setting.SOURCE] as SourceId;
-        const q = query.raw.trim();
-        const results = await fetchResults(source, q, ctx);
-
-        const openSearchItem = {
-          id: "music-global-open-search",
-          title: `Search "${q}" on ${sourceTitle(source)}`,
-          subtitle: `Open ${sourceTitle(source)} search in browser`,
-          icon: sourceIcon(source),
-          action: Action.url(searchUrl(source, q)),
-        };
-
-        if (results.length === 0) return [openSearchItem];
-
-        return [
-          openSearchItem,
-          ...results.slice(0, 5).map((r) => ({
-            id: r.id,
-            title: r.title,
-            subtitle: r.subtitle,
-            icon: r.imageUrl ? Icon.rounded(Icon.url(r.imageUrl)) : Icon.sfSymbol("music.note"),
-            action: Action.url(r.url),
-          })),
-        ];
       },
     }),
   ],
