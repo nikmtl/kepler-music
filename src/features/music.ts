@@ -168,13 +168,13 @@ function searchUrl(source: SourceId, query: string): string {
 function sourceIcon(source: SourceId) {
   switch (source) {
     case "apple-music":
-      return Icon.appIcon("/Applications/Music");
+      return Icon.appIcon("/System/Applications/Music.app");
     case "spotify":
-      return Icon.appIcon("/Applications/Spotify");
+      return Icon.appIcon("/Applications/Spotify.app");
     case "genius":
       return Icon.rounded(
         Icon.url(
-          "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Genius-logo.svg/500px-Genius-logo.svg.png",
+          "https://play-lh.googleusercontent.com/P3Qcr71hle0VO9GDQk0BZ4GxAEKiExkQh29kjIrnRhhXD0n2IIgGd4FvFSezIWjkM2EHMVSZ8uNUUXUtQsnFQQ=w480-h960",
         ),
       );
   }
