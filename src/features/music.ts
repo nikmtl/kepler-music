@@ -3,7 +3,7 @@ import { Feature } from ".";
 
 const enum Setting {
   SOURCE = "music-sources-select",
-SPOTIFY_CLIENT_ID = "music-spotify-client-id",
+  SPOTIFY_CLIENT_ID = "music-spotify-client-id",
   SPOTIFY_CLIENT_SECRET = "music-spotify-client-secret",
   GENIUS_TOKEN = "music-genius-token",
 }
@@ -44,7 +44,10 @@ async function fetchAppleMusic(query: string): Promise<TrackResult[]> {
 
 let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
 
-async function getSpotifyToken(clientId: string, clientSecret: string): Promise<string> {
+async function getSpotifyToken(
+  clientId: string,
+  clientSecret: string,
+): Promise<string> {
   if (spotifyTokenCache && Date.now() < spotifyTokenCache.expiresAt) {
     return spotifyTokenCache.token;
   }
@@ -57,10 +60,16 @@ async function getSpotifyToken(clientId: string, clientSecret: string): Promise<
     body: "grant_type=client_credentials",
   });
   if (!res.ok) {
-    console.error(`[kepler-music] Spotify token fetch failed: ${res.status}`, await res.text());
+    console.error(
+      `[kepler-music] Spotify token fetch failed: ${res.status}`,
+      await res.text(),
+    );
     return "";
   }
-  const data = (await res.json()) as { access_token: string; expires_in: number };
+  const data = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
   spotifyTokenCache = {
     token: data.access_token,
     expiresAt: Date.now() + (data.expires_in - 60) * 1000,
@@ -76,7 +85,9 @@ async function fetchSpotify(
   if (!query.trim() || !clientId || !clientSecret) return [];
   const token = await getSpotifyToken(clientId, clientSecret);
   if (!token) {
-    console.error("[kepler-music] Spotify: no token available, skipping search");
+    console.error(
+      "[kepler-music] Spotify: no token available, skipping search",
+    );
     return [];
   }
   const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`;
@@ -84,7 +95,10 @@ async function fetchSpotify(
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    console.error(`[kepler-music] Spotify search failed: ${res.status}`, await res.text());
+    console.error(
+      `[kepler-music] Spotify search failed: ${res.status}`,
+      await res.text(),
+    );
     return [];
   }
   const data = (await res.json()) as {
@@ -145,7 +159,7 @@ function searchUrl(source: SourceId, query: string): string {
     case "apple-music":
       return `https://music.apple.com/search?term=${q}`;
     case "spotify":
-      return `https://open.spotify.com/search/${q}`;
+      return `spotify:search:${q}`;
     case "genius":
       return `https://genius.com/search?q=${q}`;
   }
@@ -154,11 +168,15 @@ function searchUrl(source: SourceId, query: string): string {
 function sourceIcon(source: SourceId) {
   switch (source) {
     case "apple-music":
-      return Icon.sfSymbol("applelogo");
+      return Icon.appIcon("/Applications/Music");
     case "spotify":
-      return Icon.sfSymbol("music.note.house");
+      return Icon.appIcon("/Applications/Spotify");
     case "genius":
-      return Icon.sfSymbol("text.quote");
+      return Icon.rounded(
+        Icon.url(
+          "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Genius-logo.svg/500px-Genius-logo.svg.png",
+        ),
+      );
   }
 }
 
@@ -253,13 +271,13 @@ export const music: Feature = {
 
         const openSearchItem = {
           id: "music-open-search",
-          title: `Search "${q || "..."}" on ${sourceTitle(source)}`,
-          subtitle: `Open ${sourceTitle(source)} search in browser`,
+          title: `Search "${q}" on ${sourceTitle(source)}`,
+          subtitle: `Open full ${sourceTitle(source)} search`,
           icon: sourceIcon(source),
           action: Action.url(searchUrl(source, q || "")),
         };
 
-        if (!q) return [openSearchItem];
+        if (!q) return [];
 
         const results = await fetchResults(source, q, ctx);
 
@@ -267,7 +285,9 @@ export const music: Feature = {
           id: r.id,
           title: r.title,
           subtitle: r.subtitle,
-          icon: r.imageUrl ? Icon.rounded(Icon.url(r.imageUrl)) : Icon.sfSymbol("music.note"),
+          icon: r.imageUrl
+            ? Icon.rounded(Icon.url(r.imageUrl))
+            : Icon.sfSymbol("music.note"),
           action: Action.url(r.url),
         }));
 
