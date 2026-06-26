@@ -224,7 +224,8 @@ export const music: Feature = {
       id: Setting.SOURCE,
       title: "Music Source",
       kind: "picker",
-      description: "Select which music source to search.",
+      description:
+        "Choose which service to search. Apple Music works out of the box. Spotify and Genius require API credentials.",
       defaultValue: "apple-music",
       options: [
         { id: "apple-music", title: "Apple Music" },
@@ -237,7 +238,7 @@ export const music: Feature = {
       title: "Spotify Client ID",
       kind: "secureText",
       description:
-        "Spotify app Client ID. Required when Spotify is selected as source.",
+        "Only needed when Spotify is selected above. Create a free app at developer.spotify.com/dashboard, then copy the Client ID from its Settings page.",
       defaultValue: "",
     },
     {
@@ -245,7 +246,7 @@ export const music: Feature = {
       title: "Spotify Client Secret",
       kind: "secureText",
       description:
-        "Spotify app Client Secret. Tokens are fetched and refreshed automatically.",
+        "Only needed when Spotify is selected above. Found alongside the Client ID in your Spotify app's Settings page.",
       defaultValue: "",
     },
     {
@@ -253,7 +254,7 @@ export const music: Feature = {
       title: "Genius Client Access Token",
       kind: "secureText",
       description:
-        "Genius API client access token. Required when Genius is selected as source.",
+        "Only needed when Genius is selected above. Create a free API client at genius.com/api-clients and copy the Client Access Token.",
       defaultValue: "",
     },
   ],
