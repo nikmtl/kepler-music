@@ -125,7 +125,7 @@ async function fetchSpotify(
     title: t.name,
     subtitle: `${t.artists.map((a) => a.name).join(", ")} — ${t.album.name}`,
     imageUrl: t.album.images[0]?.url,
-    url: t.external_urls.spotify,
+    url: `spotify:track:${t.id}`,
   }));
 }
 
