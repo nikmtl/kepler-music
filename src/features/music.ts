@@ -18,28 +18,57 @@ interface TrackResult {
   url: string;
 }
 
-async function fetchAppleMusic(query: string): Promise<TrackResult[]> {
-  if (!query.trim()) return [];
+interface SearchError {
+  message: string;
+}
+
+type SearchOutcome =
+  | { ok: true; results: TrackResult[] }
+  | { ok: false; error: SearchError };
+
+function ok(results: TrackResult[]): SearchOutcome {
+  return { ok: true, results };
+}
+
+function err(message: string): SearchOutcome {
+  return { ok: false, error: { message } };
+}
+
+async function fetchAppleMusic(query: string): Promise<SearchOutcome> {
+  if (!query.trim()) return ok([]);
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=15`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = (await res.json()) as {
-    results: Array<{
-      trackId: number;
-      trackName: string;
-      artistName: string;
-      collectionName: string;
-      trackViewUrl: string;
-      artworkUrl100: string;
-    }>;
-  };
-  return data.results.map((t) => ({
-    id: `am-${t.trackId}`,
-    title: t.trackName,
-    subtitle: `${t.artistName} — ${t.collectionName}`,
-    imageUrl: t.artworkUrl100,
-    url: t.trackViewUrl,
-  }));
+  let res: KeplerResponse;
+  try {
+    res = await fetch(url);
+  } catch {
+    return err("Couldn't reach Apple Music. Check your internet connection.");
+  }
+  if (!res.ok) {
+    return err(`Apple Music search failed (HTTP ${res.status}).`);
+  }
+  try {
+    const data = (await res.json()) as {
+      results: Array<{
+        trackId: number;
+        trackName: string;
+        artistName: string;
+        collectionName: string;
+        trackViewUrl: string;
+        artworkUrl100: string;
+      }>;
+    };
+    return ok(
+      data.results.map((t) => ({
+        id: `am-${t.trackId}`,
+        title: t.trackName,
+        subtitle: `${t.artistName} — ${t.collectionName}`,
+        imageUrl: t.artworkUrl100,
+        url: t.trackViewUrl,
+      })),
+    );
+  } catch {
+    return err("Apple Music returned an unexpected response.");
+  }
 }
 
 const BASE64_CHARS =
@@ -63,102 +92,167 @@ function base64Encode(input: string): string {
 
 let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
 
+type TokenOutcome =
+  | { ok: true; token: string }
+  | { ok: false; error: SearchError };
+
 async function getSpotifyToken(
   clientId: string,
   clientSecret: string,
-): Promise<string> {
+): Promise<TokenOutcome> {
   if (spotifyTokenCache && Date.now() < spotifyTokenCache.expiresAt) {
-    return spotifyTokenCache.token;
+    return { ok: true, token: spotifyTokenCache.token };
   }
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${base64Encode(`${clientId}:${clientSecret}`)}`,
-    },
-    body: "grant_type=client_credentials",
-  });
+  let res: KeplerResponse;
+  try {
+    res = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${base64Encode(`${clientId}:${clientSecret}`)}`,
+      },
+      body: "grant_type=client_credentials",
+    });
+  } catch {
+    return {
+      ok: false,
+      error: { message: "Couldn't reach Spotify. Check your internet connection." },
+    };
+  }
   if (!res.ok) {
-    return "";
+    return {
+      ok: false,
+      error: {
+        message:
+          res.status === 400 || res.status === 401
+            ? "Spotify rejected the Client ID/Secret. Check your credentials in settings."
+            : `Spotify authentication failed (HTTP ${res.status}).`,
+      },
+    };
   }
-  const data = (await res.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
-  spotifyTokenCache = {
-    token: data.access_token,
-    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
-  };
-  return spotifyTokenCache.token;
+  try {
+    const data = (await res.json()) as {
+      access_token: string;
+      expires_in: number;
+    };
+    spotifyTokenCache = {
+      token: data.access_token,
+      expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+    };
+    return { ok: true, token: spotifyTokenCache.token };
+  } catch {
+    return {
+      ok: false,
+      error: { message: "Spotify returned an unexpected response during authentication." },
+    };
+  }
 }
 
 async function fetchSpotify(
   query: string,
   clientId: string,
   clientSecret: string,
-): Promise<TrackResult[]> {
-  if (!query.trim() || !clientId || !clientSecret) return [];
-  const token = await getSpotifyToken(clientId, clientSecret);
-  if (!token) {
-    return [];
+): Promise<SearchOutcome> {
+  if (!query.trim()) return ok([]);
+  if (!clientId || !clientSecret) {
+    return err(
+      "Spotify Client ID/Secret is missing. Add it in the Music Search settings.",
+    );
+  }
+  const tokenResult = await getSpotifyToken(clientId, clientSecret);
+  if (!tokenResult.ok) {
+    return { ok: false, error: tokenResult.error };
   }
   const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    return [];
+  let res: KeplerResponse;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${tokenResult.token}` },
+    });
+  } catch {
+    return err("Couldn't reach Spotify. Check your internet connection.");
   }
-  const data = (await res.json()) as {
-    tracks: {
-      items: Array<{
-        id: string;
-        name: string;
-        artists: Array<{ name: string }>;
-        album: { name: string; images: Array<{ url: string }> };
-        external_urls: { spotify: string };
-      }>;
+  if (!res.ok) {
+    return err(`Spotify search failed (HTTP ${res.status}).`);
+  }
+  try {
+    const data = (await res.json()) as {
+      tracks: {
+        items: Array<{
+          id: string;
+          name: string;
+          artists: Array<{ name: string }>;
+          album: { name: string; images: Array<{ url: string }> };
+          external_urls: { spotify: string };
+        }>;
+      };
     };
-  };
-  return data.tracks.items.map((t) => ({
-    id: `sp-${t.id}`,
-    title: t.name,
-    subtitle: `${t.artists.map((a) => a.name).join(", ")} — ${t.album.name}`,
-    imageUrl: t.album.images[0]?.url,
-    url: `spotify:track:${t.id}`,
-  }));
+    return ok(
+      data.tracks.items.map((t) => ({
+        id: `sp-${t.id}`,
+        title: t.name,
+        subtitle: `${t.artists.map((a) => a.name).join(", ")} — ${t.album.name}`,
+        imageUrl: t.album.images[0]?.url,
+        url: `spotify:track:${t.id}`,
+      })),
+    );
+  } catch {
+    return err("Spotify returned an unexpected response.");
+  }
 }
 
 async function fetchGenius(
   query: string,
   token: string,
-): Promise<TrackResult[]> {
-  if (!query.trim() || !token) return [];
+): Promise<SearchOutcome> {
+  if (!query.trim()) return ok([]);
+  if (!token) {
+    return err(
+      "Genius Client Access Token is missing. Add it in the Music Search settings.",
+    );
+  }
   const url = `https://api.genius.com/search?q=${encodeURIComponent(query)}&per_page=15`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return [];
-  const data = (await res.json()) as {
-    response: {
-      hits: Array<{
-        result: {
-          id: number;
-          title: string;
-          primary_artist: { name: string };
-          url: string;
-          song_art_image_thumbnail_url: string;
-        };
-      }>;
+  let res: KeplerResponse;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    return err("Couldn't reach Genius. Check your internet connection.");
+  }
+  if (!res.ok) {
+    return err(
+      res.status === 401
+        ? "Genius rejected the Client Access Token. Check your token in settings."
+        : `Genius search failed (HTTP ${res.status}).`,
+    );
+  }
+  try {
+    const data = (await res.json()) as {
+      response: {
+        hits: Array<{
+          result: {
+            id: number;
+            title: string;
+            primary_artist: { name: string };
+            url: string;
+            song_art_image_thumbnail_url: string;
+          };
+        }>;
+      };
     };
-  };
-  return data.response.hits.map((h) => ({
-    id: `genius-${h.result.id}`,
-    title: h.result.title,
-    subtitle: h.result.primary_artist.name,
-    imageUrl: h.result.song_art_image_thumbnail_url,
-    url: h.result.url,
-  }));
+    return ok(
+      data.response.hits.map((h) => ({
+        id: `genius-${h.result.id}`,
+        title: h.result.title,
+        subtitle: h.result.primary_artist.name,
+        imageUrl: h.result.song_art_image_thumbnail_url,
+        url: h.result.url,
+      })),
+    );
+  } catch {
+    return err("Genius returned an unexpected response.");
+  }
 }
 
 function searchUrl(source: SourceId, query: string): string {
@@ -208,7 +302,7 @@ async function fetchResults(
       string | number | boolean | Array<Record<string, string>>
     >;
   },
-): Promise<TrackResult[]> {
+): Promise<SearchOutcome> {
   switch (source) {
     case "apple-music":
       return fetchAppleMusic(query);
@@ -289,9 +383,19 @@ export const music: Feature = {
 
         if (!q) return [];
 
-        const results = await fetchResults(source, q, ctx);
+        const outcome = await fetchResults(source, q, ctx);
 
-        const items = results.map((r) => ({
+        if (!outcome.ok) {
+          const errorItem = {
+            id: "music-search-error",
+            title: outcome.error.message,
+            subtitle: `${sourceTitle(source)} search error`,
+            icon: Icon.sfSymbol("exclamationmark.triangle"),
+          };
+          return [openSearchItem, errorItem];
+        }
+
+        const items = outcome.results.map((r) => ({
           id: r.id,
           title: r.title,
           subtitle: r.subtitle,
