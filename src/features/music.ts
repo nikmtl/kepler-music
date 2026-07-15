@@ -266,6 +266,7 @@ export const music: Feature = {
       subtitle: "Search for songs and artists",
       keywords: ["music", "song", "artist", "track"],
       shortcutPrefix: "music",
+      placeholder: "Search for songs and artists ...",
       async run(query, ctx) {
         const source = ctx.settings[Setting.SOURCE] as SourceId;
         const q = query.raw.trim();
