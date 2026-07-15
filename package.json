@@ -10,9 +10,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.21.0",
+  "packageManager": "pnpm@11.12.0",
   "dependencies": {
-    "@kepler-app/plugin-sdk": "^0.9.0"
+    "@kepler-app/plugin-sdk": "^0.10.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
