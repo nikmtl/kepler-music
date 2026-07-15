@@ -42,6 +42,25 @@ async function fetchAppleMusic(query: string): Promise<TrackResult[]> {
   }));
 }
 
+const BASE64_CHARS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+function base64Encode(input: string): string {
+  let output = "";
+  for (let i = 0; i < input.length; i += 3) {
+    const b1 = input.charCodeAt(i);
+    const b2 = input.charCodeAt(i + 1);
+    const b3 = input.charCodeAt(i + 2);
+    output += BASE64_CHARS[b1 >> 2];
+    output += BASE64_CHARS[((b1 & 0x03) << 4) | (isNaN(b2) ? 0 : b2 >> 4)];
+    output += isNaN(b2)
+      ? "="
+      : BASE64_CHARS[((b2 & 0x0f) << 2) | (isNaN(b3) ? 0 : b3 >> 6)];
+    output += isNaN(b3) ? "=" : BASE64_CHARS[b3 & 0x3f];
+  }
+  return output;
+}
+
 let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
 
 async function getSpotifyToken(
@@ -55,15 +74,11 @@ async function getSpotifyToken(
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+      Authorization: `Basic ${base64Encode(`${clientId}:${clientSecret}`)}`,
     },
     body: "grant_type=client_credentials",
   });
   if (!res.ok) {
-    console.error(
-      `[kepler-music] Spotify token fetch failed: ${res.status}`,
-      await res.text(),
-    );
     return "";
   }
   const data = (await res.json()) as {
@@ -85,20 +100,13 @@ async function fetchSpotify(
   if (!query.trim() || !clientId || !clientSecret) return [];
   const token = await getSpotifyToken(clientId, clientSecret);
   if (!token) {
-    console.error(
-      "[kepler-music] Spotify: no token available, skipping search",
-    );
     return [];
   }
-  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`;
+  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    console.error(
-      `[kepler-music] Spotify search failed: ${res.status}`,
-      await res.text(),
-    );
     return [];
   }
   const data = (await res.json()) as {
