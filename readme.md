@@ -66,3 +66,7 @@ Genius requires a Client Access Token from a registered app.
 2. Click **New API Client**, fill in any app name and set the website URL to `http://localhost`.
 3. Open the created client and copy the **Client Access Token**.
 4. Paste it into **Genius Client Access Token** in the plugin settings.
+
+## Known Limitations
+
+Spotify rate limits are very low, so you may see errors if you search too quickly. See [Spotify Rate Limits](/docs.md#spotify-rate-limits) for more information.

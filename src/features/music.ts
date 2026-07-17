@@ -148,6 +148,8 @@ async function getSpotifyToken(
   }
 }
 
+let spotifyRateLimitedUntil = 0;
+
 async function fetchSpotify(
   query: string,
   clientId: string,
@@ -158,6 +160,9 @@ async function fetchSpotify(
     return err(
       "Spotify Client ID/Secret is missing. Add it in the Music Search settings.",
     );
+  }
+  if (Date.now() < spotifyRateLimitedUntil) {
+    return err("Spotify is rate-limiting requests. Please wait a moment and try again.");
   }
   const tokenResult = await getSpotifyToken(clientId, clientSecret);
   if (!tokenResult.ok) {
@@ -171,6 +176,12 @@ async function fetchSpotify(
     });
   } catch {
     return err("Couldn't reach Spotify. Check your internet connection.");
+  }
+  if (res.status === 429) {
+    const retryAfterSeconds = Number(res.headers["retry-after"]);
+    const delayMs = (Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 5) * 1000;
+    spotifyRateLimitedUntil = Date.now() + delayMs;
+    return err("Spotify is rate-limiting requests. Please wait a moment and try again.");
   }
   if (!res.ok) {
     return err(`Spotify search failed (HTTP ${res.status}).`);
@@ -293,6 +304,26 @@ function sourceTitle(source: SourceId): string {
   }
 }
 
+const RESULT_CACHE_TTL_MS = 60_000;
+const resultCache = new Map<
+  string,
+  { outcome: SearchOutcome; expiresAt: number }
+>();
+
+function getCachedResults(key: string): SearchOutcome | null {
+  const entry = resultCache.get(key);
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) {
+    resultCache.delete(key);
+    return null;
+  }
+  return entry.outcome;
+}
+
+function setCachedResults(key: string, outcome: SearchOutcome): void {
+  resultCache.set(key, { outcome, expiresAt: Date.now() + RESULT_CACHE_TTL_MS });
+}
+
 async function fetchResults(
   source: SourceId,
   query: string,
@@ -303,22 +334,44 @@ async function fetchResults(
     >;
   },
 ): Promise<SearchOutcome> {
+  const cacheKey = `${source}:${query}`;
+  const cached = getCachedResults(cacheKey);
+  if (cached) return cached;
+
+  let outcome: SearchOutcome;
   switch (source) {
     case "apple-music":
-      return fetchAppleMusic(query);
+      outcome = await fetchAppleMusic(query);
+      break;
     case "spotify":
-      return fetchSpotify(
+      outcome = await fetchSpotify(
         query,
         (ctx.settings[Setting.SPOTIFY_CLIENT_ID] as string) ?? "",
         (ctx.settings[Setting.SPOTIFY_CLIENT_SECRET] as string) ?? "",
       );
+      break;
     case "genius":
-      return fetchGenius(
+      outcome = await fetchGenius(
         query,
         (ctx.settings[Setting.GENIUS_TOKEN] as string) ?? "",
       );
+      break;
   }
+
+  if (outcome.ok) setCachedResults(cacheKey, outcome);
+  return outcome;
 }
+
+// The runtime has no timers, so we can't delay-then-fire a real debounce.
+// Instead we track the most recent query per source and, once a fetch
+// resolves, drop its results if the user has since typed something else.
+const latestQueryBySource = new Map<SourceId, string>();
+
+const MIN_QUERY_LENGTH: Record<SourceId, number> = {
+  "apple-music": 1,
+  spotify: 2,
+  genius: 1,
+};
 
 export const music: Feature = {
   settings: [
@@ -383,7 +436,14 @@ export const music: Feature = {
 
         if (!q) return [];
 
+        if (q.length < MIN_QUERY_LENGTH[source]) return [openSearchItem];
+
+        latestQueryBySource.set(source, q);
         const outcome = await fetchResults(source, q, ctx);
+
+        // A newer keystroke has already superseded this query — drop the
+        // stale response instead of racing it against the latest one.
+        if (latestQueryBySource.get(source) !== q) return [];
 
         if (!outcome.ok) {
           const errorItem = {
