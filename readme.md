@@ -1,4 +1,4 @@
-# Kepler Music Plugin
+# Kepler Music Search Plugin
 
 A [Kepler](https://trykepler.app) plugin that lets you search for music across multiple platforms.
 
@@ -29,7 +29,7 @@ pnpm build
 The build step bundles the plugin and writes it to:
 
 ```
-~/Library/Application Support/Kepler/Plugins/nikmtls-kepler-music.keplugin/
+~/Library/Application Support/Kepler/Plugins/nikmtls-kepler-music-search.keplugin/
 ```
 
 Then in Kepler:
