@@ -10,8 +10,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": [
-    "src",
-    "node_modules/@kepler-app/plugin-sdk/runtime.d.ts"
-  ]
+  "include": ["src", "node_modules/@kepler-app/plugin-sdk/runtime.d.ts"]
 }

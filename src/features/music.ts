@@ -23,8 +23,7 @@ interface SearchError {
 }
 
 type SearchOutcome =
-  | { ok: true; results: TrackResult[] }
-  | { ok: false; error: SearchError };
+  { ok: true; results: TrackResult[] } | { ok: false; error: SearchError };
 
 function ok(results: TrackResult[]): SearchOutcome {
   return { ok: true, results };
@@ -111,10 +110,12 @@ function base64Encode(input: string): string {
     const b2 = bytes[i + 1];
     const b3 = bytes[i + 2];
     output += BASE64_CHARS[b1 >> 2];
-    output += BASE64_CHARS[((b1 & 0x03) << 4) | (b2 === undefined ? 0 : b2 >> 4)];
-    output += b2 === undefined
-      ? "="
-      : BASE64_CHARS[((b2 & 0x0f) << 2) | (b3 === undefined ? 0 : b3 >> 6)];
+    output +=
+      BASE64_CHARS[((b1 & 0x03) << 4) | (b2 === undefined ? 0 : b2 >> 4)];
+    output +=
+      b2 === undefined
+        ? "="
+        : BASE64_CHARS[((b2 & 0x0f) << 2) | (b3 === undefined ? 0 : b3 >> 6)];
     output += b3 === undefined ? "=" : BASE64_CHARS[b3 & 0x3f];
   }
   return output;
@@ -123,8 +124,7 @@ function base64Encode(input: string): string {
 let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
 
 type TokenOutcome =
-  | { ok: true; token: string }
-  | { ok: false; error: SearchError };
+  { ok: true; token: string } | { ok: false; error: SearchError };
 
 async function getSpotifyToken(
   clientId: string,
@@ -146,7 +146,9 @@ async function getSpotifyToken(
   } catch {
     return {
       ok: false,
-      error: { message: "Couldn't reach Spotify. Check your internet connection." },
+      error: {
+        message: "Couldn't reach Spotify. Check your internet connection.",
+      },
     };
   }
   if (!res.ok) {
@@ -173,7 +175,10 @@ async function getSpotifyToken(
   } catch {
     return {
       ok: false,
-      error: { message: "Spotify returned an unexpected response during authentication." },
+      error: {
+        message:
+          "Spotify returned an unexpected response during authentication.",
+      },
     };
   }
 }
@@ -192,7 +197,9 @@ async function fetchSpotify(
     );
   }
   if (Date.now() < spotifyRateLimitedUntil) {
-    return err("Spotify is rate-limiting requests. Please wait a moment and try again.");
+    return err(
+      "Spotify is rate-limiting requests. Please wait a moment and try again.",
+    );
   }
   const tokenResult = await getSpotifyToken(clientId, clientSecret);
   if (!tokenResult.ok) {
@@ -209,9 +216,12 @@ async function fetchSpotify(
   }
   if (res.status === 429) {
     const retryAfterSeconds = Number(res.headers["retry-after"]);
-    const delayMs = (Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 5) * 1000;
+    const delayMs =
+      (Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 5) * 1000;
     spotifyRateLimitedUntil = Date.now() + delayMs;
-    return err("Spotify is rate-limiting requests. Please wait a moment and try again.");
+    return err(
+      "Spotify is rate-limiting requests. Please wait a moment and try again.",
+    );
   }
   if (!res.ok) {
     return err(`Spotify search failed (HTTP ${res.status}).`);
@@ -351,7 +361,10 @@ function getCachedResults(key: string): SearchOutcome | null {
 }
 
 function setCachedResults(key: string, outcome: SearchOutcome): void {
-  resultCache.set(key, { outcome, expiresAt: Date.now() + RESULT_CACHE_TTL_MS });
+  resultCache.set(key, {
+    outcome,
+    expiresAt: Date.now() + RESULT_CACHE_TTL_MS,
+  });
 }
 
 async function fetchResults(
@@ -454,7 +467,7 @@ export const music: Feature = {
       placeholder: "Search for a song or artist ...",
       async run(query, ctx) {
         const source = ctx.settings[Setting.SOURCE] as SourceId;
-        const q = query.raw.trim(); 
+        const q = query.raw.trim();
 
         const openSearchItem = {
           id: "music-open-search",

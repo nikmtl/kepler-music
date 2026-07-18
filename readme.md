@@ -14,7 +14,6 @@ Type `/music` in Kepler to open the music search mode, then enter any artist or 
 | [Apple Music](https://www.apple.com/apple-music/) | Artist, album, track names, and more |
 | [Genius](https://genius.com)                      | Song lyrics and annotations          |
 
-
 ## Installation
 
 ### Option 1: Install from GitHub Releases (recommended, most stable)
@@ -70,7 +69,7 @@ No token required. Apple Music search uses the public iTunes Search API.
 
 ### Spotify
 
-Spotify requires a Client ID and Client Secret from a registered app. 
+Spotify requires a Client ID and Client Secret from a registered app.
 
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in.
 2. Click **Create app**, fill in any name and description, set the redirect URI to `https://localhost` (required by the form but not used), and enable the **Web API** checkbox.
@@ -88,4 +87,8 @@ Genius requires a Client Access Token from a registered app.
 
 ## Known Limitations
 
-Spotify rate limits are relatively low, so you may encounter rate limit errors. At the moment kepler fires a request on every keystroke, as there is sadly no built-in debouncing in the plugin SDK. Current workarounds include: result caching, minimum search length and a stale-response guard. 
+Spotify rate limits are relatively low, so you may encounter rate limit errors. At the moment kepler fires a request on every keystroke, as there is sadly no built-in debouncing in the plugin SDK. Current workarounds include: result caching, minimum search length and a stale-response guard.
+
+## Contributing
+
+Contributions are welcome. Please read `CONTRIBUTING.md` for setup, checks and guidelines.

@@ -1,7 +1,7 @@
-import { definePlugin, Icon, KeplerPluginMeta } from '@kepler-app/plugin-sdk';
-import { registerFeatures } from './features';
-import { music } from './features/music';
-import config from '../plugin.config.json';
+import { definePlugin, Icon, KeplerPluginMeta } from "@kepler-app/plugin-sdk";
+import { registerFeatures } from "./features";
+import { music } from "./features/music";
+import config from "../plugin.config.json";
 
 const features = [music];
 const { settings, ...registrations } = registerFeatures(features);
