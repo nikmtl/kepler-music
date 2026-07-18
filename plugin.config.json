@@ -1,7 +1,7 @@
 {
   "id": "dev.nikmtl.kepler-music-search",
   "name": "Music Search",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "nikmtl",
   "icon": "music.note.square.stack",
   "bundleName": "nikmtls-kepler-music-search",
