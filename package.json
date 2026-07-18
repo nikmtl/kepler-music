@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "A Kepler plugin to search for songs from multiple music sources",
   "scripts": {
+    "check:versions": "node scripts/check-version-consistency.cjs",
     "build": "tsup && tsx scripts/manifest.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

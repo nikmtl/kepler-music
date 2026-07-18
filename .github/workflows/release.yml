@@ -1,0 +1,74 @@
+name: Release Plugin
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check version consistency
+        run: pnpm check:versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+
+      - name: Build plugin
+        run: pnpm build
+
+      - name: Package plugin asset
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_name=$(node -p "require('./plugin.config.json').bundleName")
+          out_dir="$HOME/Library/Application Support/Kepler/Plugins/${bundle_name}.keplugin"
+
+          if [[ ! -d "$out_dir" ]]; then
+            echo "Expected plugin output folder not found: $out_dir"
+            exit 1
+          fi
+
+          asset_name="${bundle_name}-${GITHUB_REF_NAME}.zip"
+          parent_dir=$(dirname "$out_dir")
+          folder_name=$(basename "$out_dir")
+
+          (
+            cd "$parent_dir"
+            zip -r "$GITHUB_WORKSPACE/$asset_name" "$folder_name"
+          )
+
+          echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
+          echo "asset_path=$GITHUB_WORKSPACE/$asset_name" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release and upload asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: ${{ steps.package.outputs.asset_path }}

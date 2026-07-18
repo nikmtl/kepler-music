@@ -17,6 +17,25 @@ Type `/music` in Kepler to open the music search mode, then enter any artist or 
 
 ## Installation
 
+### Option 1: Install from GitHub Releases (recommended, most stable)
+
+1. Open the [Releases page](https://github.com/nikmtl/kepler-music-search/releases) and download the latest release asset.
+2. If the asset is a zip file, extract it.
+3. Copy the resulting `nikmtls-kepler-music-search.keplugin` folder into:
+
+```
+~/Library/Application Support/Kepler/Plugins/
+```
+
+Then in Kepler:
+
+1. Open Settings -> Plugins
+2. Enable **Community Plugins** if not already active
+3. The Music plugin should appear in the list; enable it
+4. Use `/music` to search for music
+
+### Option 2: Build from source
+
 **Requirements:** [Node.js](https://nodejs.org) and [pnpm](https://pnpm.io)
 
 ```bash
