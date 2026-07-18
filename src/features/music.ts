@@ -3,6 +3,7 @@ import { Feature } from ".";
 
 const enum Setting {
   SOURCE = "music-sources-select",
+  SEARCH_ARTISTS = "music-search-artists",
   SPOTIFY_CLIENT_ID = "music-spotify-client-id",
   SPOTIFY_CLIENT_SECRET = "music-spotify-client-secret",
   GENIUS_TOKEN = "music-genius-token",
@@ -10,12 +11,21 @@ const enum Setting {
 
 type SourceId = "apple-music" | "spotify" | "genius";
 
+type ResultKind = "track" | "artist";
+
 interface TrackResult {
   id: string;
+  kind: ResultKind;
   title: string;
   subtitle: string;
   imageUrl?: string;
   url: string;
+  /**
+   * 0-100 relevance signal used to interleave tracks and artists.
+   * Sourced from the provider's own popularity score when available,
+   * otherwise derived from how closely the name matches the query.
+   */
+  relevance: number;
 }
 
 interface SearchError {
@@ -33,20 +43,120 @@ function err(message: string): SearchOutcome {
   return { ok: false, error: { message } };
 }
 
-async function fetchAppleMusic(query: string): Promise<SearchOutcome> {
+/**
+ * Relevance score (0-100) for providers that don't expose their own
+ * popularity/ranking signal. Rewards exact and prefix matches against the
+ * query so a searched-for artist/track can outrank an unrelated result that
+ * the API merely returned earlier in the list.
+ */
+function nameMatchRelevance(
+  name: string,
+  query: string,
+  apiRank: number,
+): number {
+  const n = name.toLowerCase().trim();
+  const q = query.toLowerCase().trim();
+  let score: number;
+  if (n === q) score = 100;
+  else if (n.startsWith(q)) score = 85;
+  else if (n.includes(q)) score = 65;
+  else score = 45;
+  // Small tiebreaker so the API's own ordering still matters among
+  // equally-scored results, without letting it override a better match.
+  return score - Math.min(apiRank, 9);
+}
+
+/**
+ * Merge track and artist results into a single relevance-ranked list.
+ *
+ * Both lists are already scored 0-100 on their own terms (API popularity or
+ * name-match strength), so a plain merge-sort on that score already gets top
+ * hits in roughly the right order. On top of that we apply two tweaks that
+ * make the blend feel smarter than a naive sort:
+ *
+ *  - An artist that matches the query very closely (score >= 85, i.e. an
+ *    exact or prefix name match) gets a small boost. Someone typing an
+ *    artist's name is usually looking for the artist page/profile, and a
+ *    single well-matched artist getting buried under a dozen so-so tracks
+ *    reads as broken, not correct.
+ *  - Beyond that boosted lead-in, artists are capped to at most one in every
+ *    four results so a long tail of loosely-related artists can't crowd out
+ *    tracks the user is more likely to actually want.
+ */
+function interleaveByRelevance(
+  tracks: TrackResult[],
+  artists: TrackResult[],
+): TrackResult[] {
+  const ARTIST_BOOST = 8;
+  const STRONG_MATCH = 85;
+  const MAX_ARTIST_RATIO = 4;
+
+  const boosted = artists.map((a) => ({
+    ...a,
+    sortScore:
+      a.relevance >= STRONG_MATCH ? a.relevance + ARTIST_BOOST : a.relevance,
+  }));
+  const scoredTracks = tracks.map((t) => ({ ...t, sortScore: t.relevance }));
+
+  const merged = [...boosted, ...scoredTracks].sort(
+    (a, b) => b.sortScore - a.sortScore,
+  );
+
+  const result: TrackResult[] = [];
+  let artistCount = 0;
+  const overflowArtists: TrackResult[] = [];
+  for (const item of merged) {
+    if (item.kind === "artist") {
+      const allowedSoFar =
+        Math.floor((result.length + 1) / MAX_ARTIST_RATIO) + 1;
+      if (artistCount >= allowedSoFar) {
+        overflowArtists.push(item);
+        continue;
+      }
+      artistCount++;
+    }
+    result.push(item);
+  }
+  // Any artists bumped for ratio reasons still belong in the list — just at
+  // the end, after every track has had its turn.
+  result.push(...overflowArtists);
+  return result;
+}
+
+async function fetchAppleMusic(
+  query: string,
+  includeArtists: boolean,
+): Promise<SearchOutcome> {
   if (!query.trim()) return ok([]);
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=15`;
-  let res: KeplerResponse;
+  const q = encodeURIComponent(query);
+
+  const trackUrl = `https://itunes.apple.com/search?term=${q}&media=music&entity=song&limit=15`;
+  const artistUrl = `https://itunes.apple.com/search?term=${q}&media=music&entity=musicArtist&limit=5`;
+
+  let trackRes: KeplerResponse;
   try {
-    res = await fetch(url);
+    trackRes = await fetch(trackUrl);
   } catch {
     return err("Couldn't reach Apple Music. Check your internet connection.");
   }
-  if (!res.ok) {
-    return err(`Apple Music search failed (HTTP ${res.status}).`);
+  if (!trackRes.ok) {
+    return err(`Apple Music search failed (HTTP ${trackRes.status}).`);
   }
+
+  let artistRes: KeplerResponse | null = null;
+  if (includeArtists) {
+    try {
+      artistRes = await fetch(artistUrl);
+    } catch {
+      return err("Couldn't reach Apple Music. Check your internet connection.");
+    }
+    if (!artistRes.ok) {
+      return err(`Apple Music search failed (HTTP ${artistRes.status}).`);
+    }
+  }
+
   try {
-    const data = (await res.json()) as {
+    const trackData = (await trackRes.json()) as {
       results: Array<{
         trackId: number;
         trackName: string;
@@ -56,15 +166,36 @@ async function fetchAppleMusic(query: string): Promise<SearchOutcome> {
         artworkUrl100: string;
       }>;
     };
-    return ok(
-      data.results.map((t) => ({
-        id: `am-${t.trackId}`,
-        title: t.trackName,
-        subtitle: `${t.artistName} — ${t.collectionName}`,
-        imageUrl: t.artworkUrl100,
-        url: t.trackViewUrl,
-      })),
-    );
+    const tracks: TrackResult[] = trackData.results.map((t, i) => ({
+      id: `am-${t.trackId}`,
+      kind: "track",
+      title: t.trackName,
+      subtitle: `${t.artistName} — ${t.collectionName}`,
+      imageUrl: t.artworkUrl100,
+      url: t.trackViewUrl,
+      relevance: nameMatchRelevance(t.trackName, query, i),
+    }));
+
+    let artists: TrackResult[] = [];
+    if (artistRes) {
+      const artistData = (await artistRes.json()) as {
+        results: Array<{
+          artistId: number;
+          artistName: string;
+          artistLinkUrl: string;
+        }>;
+      };
+      artists = artistData.results.map((a, i) => ({
+        id: `am-artist-${a.artistId}`,
+        kind: "artist",
+        title: a.artistName,
+        subtitle: "Artist",
+        url: a.artistLinkUrl,
+        relevance: nameMatchRelevance(a.artistName, query, i),
+      }));
+    }
+
+    return ok(interleaveByRelevance(tracks, artists));
   } catch {
     return err("Apple Music returned an unexpected response.");
   }
@@ -189,6 +320,7 @@ async function fetchSpotify(
   query: string,
   clientId: string,
   clientSecret: string,
+  includeArtists: boolean,
 ): Promise<SearchOutcome> {
   if (!query.trim()) return ok([]);
   if (!clientId || !clientSecret) {
@@ -205,7 +337,8 @@ async function fetchSpotify(
   if (!tokenResult.ok) {
     return { ok: false, error: tokenResult.error };
   }
-  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`;
+  const types = includeArtists ? "track,artist" : "track";
+  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${types}&limit=10`;
   let res: KeplerResponse;
   try {
     res = await fetch(url, {
@@ -234,19 +367,42 @@ async function fetchSpotify(
           name: string;
           artists: Array<{ name: string }>;
           album: { name: string; images: Array<{ url: string }> };
-          external_urls: { spotify: string };
+          popularity?: number;
+        }>;
+      };
+      artists?: {
+        items: Array<{
+          id: string;
+          name: string;
+          genres?: string[];
+          images: Array<{ url: string }>;
+          popularity?: number;
         }>;
       };
     };
-    return ok(
-      data.tracks.items.map((t) => ({
-        id: `sp-${t.id}`,
-        title: t.name,
-        subtitle: `${t.artists.map((a) => a.name).join(", ")} — ${t.album.name}`,
-        imageUrl: t.album.images[0]?.url,
-        url: `spotify:track:${t.id}`,
-      })),
-    );
+    // Some app registrations no longer receive `popularity` from this
+    // endpoint — fall back to the name-match heuristic when it's missing
+    // rather than letting `relevance` silently become `undefined`.
+    const tracks: TrackResult[] = data.tracks.items.map((t, i) => ({
+      id: `sp-${t.id}`,
+      kind: "track",
+      title: t.name,
+      subtitle: `${t.artists.map((a) => a.name).join(", ")} — ${t.album.name}`,
+      imageUrl: t.album.images[0]?.url,
+      url: `spotify:track:${t.id}`,
+      relevance: t.popularity ?? nameMatchRelevance(t.name, query, i),
+    }));
+    const artists: TrackResult[] = (data.artists?.items ?? []).map((a, i) => ({
+      id: `sp-artist-${a.id}`,
+      kind: "artist",
+      title: a.name,
+      subtitle:
+        a.genres && a.genres.length > 0 ? `Artist — ${a.genres[0]}` : "Artist",
+      imageUrl: a.images[0]?.url,
+      url: `spotify:artist:${a.id}`,
+      relevance: a.popularity ?? nameMatchRelevance(a.name, query, i),
+    }));
+    return ok(interleaveByRelevance(tracks, artists));
   } catch {
     return err("Spotify returned an unexpected response.");
   }
@@ -293,12 +449,14 @@ async function fetchGenius(
       };
     };
     return ok(
-      data.response.hits.map((h) => ({
+      data.response.hits.map((h, i) => ({
         id: `genius-${h.result.id}`,
+        kind: "track",
         title: h.result.title,
         subtitle: h.result.primary_artist.name,
         imageUrl: h.result.song_art_image_thumbnail_url,
         url: h.result.url,
+        relevance: nameMatchRelevance(h.result.title, query, i),
       })),
     );
   } catch {
@@ -377,20 +535,23 @@ async function fetchResults(
     >;
   },
 ): Promise<SearchOutcome> {
-  const cacheKey = `${source}:${query}`;
+  const includeArtists =
+    (ctx.settings[Setting.SEARCH_ARTISTS] as boolean) ?? true;
+  const cacheKey = `${source}:${includeArtists}:${query}`;
   const cached = getCachedResults(cacheKey);
   if (cached) return cached;
 
   let outcome: SearchOutcome;
   switch (source) {
     case "apple-music":
-      outcome = await fetchAppleMusic(query);
+      outcome = await fetchAppleMusic(query, includeArtists);
       break;
     case "spotify":
       outcome = await fetchSpotify(
         query,
         (ctx.settings[Setting.SPOTIFY_CLIENT_ID] as string) ?? "",
         (ctx.settings[Setting.SPOTIFY_CLIENT_SECRET] as string) ?? "",
+        includeArtists,
       );
       break;
     case "genius":
@@ -430,6 +591,14 @@ export const music: Feature = {
         { id: "spotify", title: "Spotify" },
         { id: "genius", title: "Genius" },
       ],
+    },
+    {
+      id: Setting.SEARCH_ARTISTS,
+      title: "Search Artists",
+      kind: "toggle",
+      description:
+        "Also search for matching artists (Spotify and Apple Music only)",
+      defaultValue: true,
     },
     {
       id: Setting.SPOTIFY_CLIENT_ID,
@@ -504,7 +673,9 @@ export const music: Feature = {
           subtitle: r.subtitle,
           icon: r.imageUrl
             ? Icon.rounded(Icon.url(r.imageUrl))
-            : Icon.sfSymbol("music.note"),
+            : Icon.sfSymbol(
+                r.kind === "artist" ? "person.crop.circle" : "music.note",
+              ),
           action: Action.url(r.url),
         }));
 
