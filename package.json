@@ -1,6 +1,6 @@
 {
   "name": "@nikmtl/kepler-music-search",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A Kepler plugin to search for songs from multiple music sources",
   "scripts": {
     "check:versions": "node scripts/check-version-consistency.cjs",
