@@ -13,6 +13,7 @@ Type `/music` in Kepler to open the music search mode, then enter any artist or 
 | [Spotify](https://www.spotify.com)                | Artist, album, track names, and more |
 | [Apple Music](https://www.apple.com/apple-music/) | Artist, album, track names, and more |
 | [Genius](https://genius.com)                      | Song lyrics and annotations          |
+| [YouTube Music](https://music.youtube.com)        | Track names and more                 |
 
 ## Installation
 
@@ -85,9 +86,18 @@ Genius requires a Client Access Token from a registered app.
 3. Open the created client and copy the **Client Access Token**.
 4. Paste it into **Genius Client Access Token** in the plugin settings.
 
+### YouTube Music
+
+YouTube Music requires an API Key with the YouTube Data API v3 enabled (there's no official YouTube Music search API, so this uses YouTube's own search, filtered to the Music category).
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com), create (or select) a project.
+2. Under **APIs & Services → Library**, enable the **YouTube Data API v3**.
+3. Under **APIs & Services → Credentials**, click **Create Credentials → API Key**.
+4. Paste it into **YouTube Data API Key** in the plugin settings.
+
 ## Known Limitations
 
-Spotify rate limits are relatively low, so you may encounter rate limit errors. At the moment kepler fires a request on every keystroke, as there is sadly no built-in debouncing in the plugin SDK. Current workarounds include: result caching, minimum search length and a stale-response guard.
+Spotify's and YouTube Data API's rate limits are relatively low, so you may encounter rate limit errors. At the moment kepler fires a request on every keystroke, as there is sadly no built-in debouncing in the plugin SDK. Current workarounds include: result caching, minimum search length and a stale-response guard.
 
 ## Contributing
 

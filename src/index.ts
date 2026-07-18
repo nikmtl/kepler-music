@@ -18,6 +18,7 @@ const metadata: KeplerPluginMeta = {
     "accounts.spotify.com",
     "api.spotify.com",
     "api.genius.com",
+    "www.googleapis.com",
   ],
   settings,
 };
