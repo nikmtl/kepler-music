@@ -647,6 +647,7 @@ export const music: Feature = {
             : Icon.sfSymbol(
                 r.kind === "artist" ? "person.crop.circle" : "music.note",
               ),
+          // ToDo: Make the artist profile image fully circular when the runtime supports it.
           action: Action.url(r.url),
         }));
 
