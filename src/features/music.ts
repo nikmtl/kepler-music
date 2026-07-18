@@ -20,12 +20,7 @@ interface TrackResult {
   subtitle: string;
   imageUrl?: string;
   url: string;
-  /**
-   * 0-100 relevance signal used to interleave tracks and artists.
-   * Sourced from the provider's own popularity score when available,
-   * otherwise derived from how closely the name matches the query.
-   */
-  relevance: number;
+  relevance: number; // 0-100 score used to interleave tracks and artists
 }
 
 interface SearchError {
@@ -43,12 +38,6 @@ function err(message: string): SearchOutcome {
   return { ok: false, error: { message } };
 }
 
-/**
- * Relevance score (0-100) for providers that don't expose their own
- * popularity/ranking signal. Rewards exact and prefix matches against the
- * query so a searched-for artist/track can outrank an unrelated result that
- * the API merely returned earlier in the list.
- */
 function nameMatchRelevance(
   name: string,
   query: string,
@@ -61,27 +50,13 @@ function nameMatchRelevance(
   else if (n.startsWith(q)) score = 85;
   else if (n.includes(q)) score = 65;
   else score = 45;
-  // Small tiebreaker so the API's own ordering still matters among
-  // equally-scored results, without letting it override a better match.
+  // Small tiebreaker so the API's own ordering still matters among equally-scored results, without letting it override a better match.
   return score - Math.min(apiRank, 9);
 }
 
 /**
- * Merge track and artist results into a single relevance-ranked list.
- *
- * Both lists are already scored 0-100 on their own terms (API popularity or
- * name-match strength), so a plain merge-sort on that score already gets top
- * hits in roughly the right order. On top of that we apply two tweaks that
- * make the blend feel smarter than a naive sort:
- *
- *  - An artist that matches the query very closely (score >= 85, i.e. an
- *    exact or prefix name match) gets a small boost. Someone typing an
- *    artist's name is usually looking for the artist page/profile, and a
- *    single well-matched artist getting buried under a dozen so-so tracks
- *    reads as broken, not correct.
- *  - Beyond that boosted lead-in, artists are capped to at most one in every
- *    four results so a long tail of loosely-related artists can't crowd out
- *    tracks the user is more likely to actually want.
+ * Merge and rank track and artist results by relevance.
+ * Boosts strong artist matches (score >= 85) and limits artists to 1 per 4 results.
  */
 function interleaveByRelevance(
   tracks: TrackResult[],
@@ -117,8 +92,7 @@ function interleaveByRelevance(
     }
     result.push(item);
   }
-  // Any artists bumped for ratio reasons still belong in the list — just at
-  // the end, after every track has had its turn.
+  // Any artists bumped for ratio reasons still belong in the list
   result.push(...overflowArtists);
   return result;
 }
@@ -204,9 +178,6 @@ async function fetchAppleMusic(
 const BASE64_CHARS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-// charCodeAt yields UTF-16 code units, not UTF-8 bytes — encode to UTF-8
-// bytes first so non-ASCII credentials (e.g. a stray smart quote) still
-// produce a spec-correct Basic Auth header instead of silently mismatching.
 function utf8Bytes(input: string): number[] {
   const bytes: number[] = [];
   for (const char of input) {
