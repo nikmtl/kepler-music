@@ -69,4 +69,4 @@ Genius requires a Client Access Token from a registered app.
 
 ## Known Limitations
 
-Spotify rate limits are very low, so you may see errors as on every keystroke kepler fires a request. There is sadly no built-in debouncing in the plugin SDK at the moment. Current workarounds include: result caching, minimum search length and a stale-response guard. 
+Spotify rate limits are relatively low, so you may encounter rate limit errors. At the moment kepler fires a request on every keystroke, as there is sadly no built-in debouncing in the plugin SDK. Current workarounds include: result caching, minimum search length and a stale-response guard. 
