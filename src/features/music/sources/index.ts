@@ -4,6 +4,7 @@ import { SearchOutcome, SourceId } from "../types";
 import { fetchAppleMusic } from "./apple-music";
 import { fetchGenius } from "./genius";
 import { fetchSpotify } from "./spotify";
+import { fetchYoutubeMusic } from "./youtube-music";
 
 export function searchUrl(source: SourceId, query: string): string {
   const q = encodeURIComponent(query);
@@ -14,6 +15,8 @@ export function searchUrl(source: SourceId, query: string): string {
       return `spotify:search:${q}`;
     case "genius":
       return `https://genius.com/search?q=${q}`;
+    case "youtube-music":
+      return `https://music.youtube.com/search?q=${q}`;
   }
 }
 
@@ -29,6 +32,12 @@ export function sourceIcon(source: SourceId) {
           "https://play-lh.googleusercontent.com/P3Qcr71hle0VO9GDQk0BZ4GxAEKiExkQh29kjIrnRhhXD0n2IIgGd4FvFSezIWjkM2EHMVSZ8uNUUXUtQsnFQQ=w480-h960",
         ),
       );
+    case "youtube-music":
+      return Icon.rounded(
+        Icon.url(
+          "https://play-lh.googleusercontent.com/MyptZXmcCyF59phIWPsNCfHq6zSO_ojEdw_4rMYYWPOGdikSjqeOXcoszBZ053VYpINe5K7ZR9KV1nkFWgxdOw=w480-h960",
+        ),
+      );
   }
 }
 
@@ -40,6 +49,8 @@ export function sourceTitle(source: SourceId): string {
       return "Spotify";
     case "genius":
       return "Genius";
+    case "youtube-music":
+      return "YouTube Music";
   }
 }
 
@@ -99,6 +110,12 @@ export async function fetchResults(
       outcome = await fetchGenius(
         query,
         (ctx.settings[Setting.GENIUS_TOKEN] as string) ?? "",
+      );
+      break;
+    case "youtube-music":
+      outcome = await fetchYoutubeMusic(
+        query,
+        (ctx.settings[Setting.YOUTUBE_MUSIC_API_KEY] as string) ?? "",
       );
       break;
   }

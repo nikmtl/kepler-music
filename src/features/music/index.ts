@@ -11,6 +11,7 @@ const MIN_QUERY_LENGTH: Record<SourceId, number> = {
   "apple-music": 1,
   spotify: 2,
   genius: 1,
+  "youtube-music": 2,
 };
 
 export const music: Feature = {
@@ -20,12 +21,13 @@ export const music: Feature = {
       title: "Music Source",
       kind: "picker",
       description:
-        "Choose which service to search. Apple Music works out of the box. Spotify and Genius require API credentials.",
+        "Choose which service to search. Apple Music works out of the box. Spotify, Genius and YouTube Music require API credentials.",
       defaultValue: "apple-music",
       options: [
         { id: "apple-music", title: "Apple Music" },
         { id: "spotify", title: "Spotify" },
         { id: "genius", title: "Genius" },
+        { id: "youtube-music", title: "YouTube Music" },
       ],
     },
     {
@@ -58,6 +60,14 @@ export const music: Feature = {
       kind: "secureText",
       description:
         "Only needed when Genius is selected above. Create a free API client at genius.com/api-clients and copy the Client Access Token.",
+      defaultValue: "",
+    },
+    {
+      id: Setting.YOUTUBE_MUSIC_API_KEY,
+      title: "YouTube Data API Key",
+      kind: "secureText",
+      description:
+        "Only needed when YouTube Music is selected above. Create a free API key at console.cloud.google.com with the YouTube Data API v3 enabled.",
       defaultValue: "",
     },
   ],

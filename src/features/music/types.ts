@@ -1,4 +1,4 @@
-export type SourceId = "apple-music" | "spotify" | "genius";
+export type SourceId = "apple-music" | "spotify" | "genius" | "youtube-music";
 
 export type ResultKind = "track" | "artist";
 
